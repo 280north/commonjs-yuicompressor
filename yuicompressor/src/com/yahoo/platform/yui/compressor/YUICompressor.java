@@ -29,6 +29,7 @@ public class YUICompressor {
         CmdLineParser.Option helpOpt = parser.addBooleanOption('h', "help");
         CmdLineParser.Option charsetOpt = parser.addStringOption("charset");
         CmdLineParser.Option outputFilenameOpt = parser.addStringOption('o', "output");
+        CmdLineParser.Option runServerOpt = parser.addBooleanOption("server");
 
         Reader in = null;
         Writer out = null;
@@ -105,6 +106,37 @@ public class YUICompressor {
 
             String outputFilename = (String) parser.getOptionValue(outputFilenameOpt);
 
+            boolean munge = parser.getOptionValue(nomungeOpt) == null;
+            boolean preserveAllSemiColons = parser.getOptionValue(preserveSemiOpt) != null;
+            boolean disableOptimizations = parser.getOptionValue(disableOptimizationsOpt) != null;
+
+            if (parser.getOptionValue(runServerOpt) != null) {
+                DataInputStream input = new DataInputStream(System.in);
+                DataOutputStream output = new DataOutputStream(System.out);
+                System.err.println("Starting server.");
+                while (true) {
+                    int length = input.readInt();
+                    byte data[] = new byte[length];
+                    while (length > 0)
+                        length -= input.read(data, data.length - length, length);
+                    // Convert to String using the default encoding
+                    String source = new String(data, charset);
+
+                    StringReader inBuffer = new StringReader(source);
+                    StringWriter outBuffer = new StringWriter();
+
+                    JavaScriptCompressor compressor = new JavaScriptCompressor(inBuffer, null);
+
+                    compressor.compress(outBuffer, linebreakpos, munge, verbose,
+                            preserveAllSemiColons, disableOptimizations);
+
+                    byte result[] = outBuffer.toString().getBytes(charset);
+
+                    output.writeInt(result.length);
+                    output.write(result, 0, result.length);
+                }
+            }
+
             if (type.equalsIgnoreCase("js")) {
 
                 try {
@@ -145,10 +177,6 @@ public class YUICompressor {
                     } else {
                         out = new OutputStreamWriter(new FileOutputStream(outputFilename), charset);
                     }
-
-                    boolean munge = parser.getOptionValue(nomungeOpt) == null;
-                    boolean preserveAllSemiColons = parser.getOptionValue(preserveSemiOpt) != null;
-                    boolean disableOptimizations = parser.getOptionValue(disableOptimizationsOpt) != null;
 
                     compressor.compress(out, linebreakpos, munge, verbose,
                             preserveAllSemiColons, disableOptimizations);
